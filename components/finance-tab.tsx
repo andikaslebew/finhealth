@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2 } from 'lucide-react'
+import { Plus, Minus, Wallet, ArrowUpCircle, ArrowDownCircle, Trash2 } from 'lucide-react'
 
 export interface Transaction {
   id: string
@@ -18,9 +18,11 @@ interface FinanceTabProps {
 }
 
 export function FinanceTab({ transactions, onAddTransaction, onDeleteTransaction }: FinanceTabProps) {
-  const [amount, setAmount] = useState('')
-  const [description, setDescription] = useState('')
-  const [type, setType] = useState<'income' | 'expense'>('income')
+  const [incomeAmount, setIncomeAmount] = useState('')
+  const [incomeDesc, setIncomeDesc] = useState('')
+  const [expenseAmount, setExpenseAmount] = useState('')
+  const [expenseDesc, setExpenseDesc] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
 
   const totalBalance = transactions.reduce((acc, t) => {
     return acc + (t.type === 'income' ? t.amount : -t.amount)
@@ -34,18 +36,32 @@ export function FinanceTab({ transactions, onAddTransaction, onDeleteTransaction
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleIncomeSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const numAmount = parseFloat(amount)
-    if (isNaN(numAmount) || numAmount <= 0 || !description.trim()) return
+    const numAmount = parseFloat(incomeAmount)
+    if (isNaN(numAmount) || numAmount <= 0) return
     
     onAddTransaction({
       amount: numAmount,
-      type,
-      description: description.trim()
+      type: 'income',
+      description: incomeDesc.trim() || 'Uang Masuk'
     })
-    setAmount('')
-    setDescription('')
+    setIncomeAmount('')
+    setIncomeDesc('')
+  }
+
+  const handleExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const numAmount = parseFloat(expenseAmount)
+    if (isNaN(numAmount) || numAmount <= 0) return
+    
+    onAddTransaction({
+      amount: numAmount,
+      type: 'expense',
+      description: expenseDesc.trim() || 'Uang Keluar'
+    })
+    setExpenseAmount('')
+    setExpenseDesc('')
   }
 
   const formatCurrency = (value: number) => {
@@ -66,147 +82,191 @@ export function FinanceTab({ transactions, onAddTransaction, onDeleteTransaction
     })
   }
 
+  // Get recent transactions (last 5)
+  const recentTransactions = [...transactions].reverse().slice(0, 5)
+
   return (
     <div className="space-y-4">
-      {/* Balance Card */}
-      <div className="bg-primary rounded-2xl p-6 text-primary-foreground">
-        <p className="text-sm opacity-90 mb-1">Total Saldo</p>
-        <p className="text-3xl font-bold text-balance">{formatCurrency(totalBalance)}</p>
-        <div className="flex gap-4 mt-4 pt-4 border-t border-primary-foreground/20">
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5 text-sm opacity-90 mb-0.5">
-              <TrendingUp className="w-4 h-4" />
-              <span>Pemasukan</span>
-            </div>
-            <p className="font-semibold">{formatCurrency(totalIncome)}</p>
+      {/* Main Balance Card - Prominent Display */}
+      <div className="bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-6 text-primary-foreground shadow-lg">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-12 h-12 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
+            <Wallet className="w-7 h-7" />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5 text-sm opacity-90 mb-0.5">
-              <TrendingDown className="w-4 h-4" />
-              <span>Pengeluaran</span>
+          <div>
+            <p className="text-sm opacity-90">Dompetku</p>
+            <p className="text-xs opacity-70">Saldo Saat Ini</p>
+          </div>
+        </div>
+        
+        <div className="mt-4 mb-6">
+          <p className={`text-4xl font-bold tracking-tight ${totalBalance < 0 ? 'text-red-200' : ''}`}>
+            {formatCurrency(totalBalance)}
+          </p>
+        </div>
+
+        <div className="flex gap-4 pt-4 border-t border-primary-foreground/20">
+          <div className="flex-1 flex items-center gap-2">
+            <ArrowUpCircle className="w-5 h-5 text-green-200" />
+            <div>
+              <p className="text-xs opacity-70">Masuk</p>
+              <p className="font-semibold text-sm">{formatCurrency(totalIncome)}</p>
             </div>
-            <p className="font-semibold">{formatCurrency(totalExpense)}</p>
+          </div>
+          <div className="flex-1 flex items-center gap-2">
+            <ArrowDownCircle className="w-5 h-5 text-red-200" />
+            <div>
+              <p className="text-xs opacity-70">Keluar</p>
+              <p className="font-semibold text-sm">{formatCurrency(totalExpense)}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Input Form */}
-      <div className="bg-card rounded-2xl p-5 border border-border">
-        <h2 className="font-semibold text-lg mb-4">Tambah Transaksi</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Type Toggle */}
-          <div className="flex gap-2">
+      {/* Input Forms - Side by Side on larger screens */}
+      <div className="grid gap-4">
+        {/* Income Form */}
+        <div className="bg-card rounded-2xl p-5 border border-secondary/30">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-secondary/20 flex items-center justify-center">
+              <Plus className="w-5 h-5 text-secondary" />
+            </div>
+            <h2 className="font-semibold text-lg text-secondary">Uang Masuk</h2>
+          </div>
+          <form onSubmit={handleIncomeSubmit} className="space-y-3">
+            <div>
+              <input
+                type="number"
+                value={incomeAmount}
+                onChange={(e) => setIncomeAmount(e.target.value)}
+                placeholder="Nominal (Rp)"
+                className="w-full bg-input border border-border rounded-xl px-4 py-3.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-secondary"
+                min="0"
+                inputMode="numeric"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                value={incomeDesc}
+                onChange={(e) => setIncomeDesc(e.target.value)}
+                placeholder="Keterangan (opsional)"
+                className="w-full bg-input border border-border rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-secondary"
+              />
+            </div>
             <button
-              type="button"
-              onClick={() => setType('income')}
-              className={`flex-1 py-3 px-4 rounded-xl font-medium text-base transition-colors ${
-                type === 'income'
-                  ? 'bg-secondary text-secondary-foreground'
-                  : 'bg-muted text-muted-foreground'
-              }`}
+              type="submit"
+              disabled={!incomeAmount}
+              className="w-full bg-secondary text-secondary-foreground py-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              + Pemasukan
+              <Plus className="w-5 h-5" />
+              Tambah Pemasukan
             </button>
+          </form>
+        </div>
+
+        {/* Expense Form */}
+        <div className="bg-card rounded-2xl p-5 border border-destructive/30">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-destructive/20 flex items-center justify-center">
+              <Minus className="w-5 h-5 text-destructive" />
+            </div>
+            <h2 className="font-semibold text-lg text-destructive">Uang Keluar</h2>
+          </div>
+          <form onSubmit={handleExpenseSubmit} className="space-y-3">
+            <div>
+              <input
+                type="number"
+                value={expenseAmount}
+                onChange={(e) => setExpenseAmount(e.target.value)}
+                placeholder="Nominal (Rp)"
+                className="w-full bg-input border border-border rounded-xl px-4 py-3.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-destructive"
+                min="0"
+                inputMode="numeric"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                value={expenseDesc}
+                onChange={(e) => setExpenseDesc(e.target.value)}
+                placeholder="Keterangan (opsional)"
+                className="w-full bg-input border border-border rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-destructive"
+              />
+            </div>
             <button
-              type="button"
-              onClick={() => setType('expense')}
-              className={`flex-1 py-3 px-4 rounded-xl font-medium text-base transition-colors ${
-                type === 'expense'
-                  ? 'bg-destructive text-destructive-foreground'
-                  : 'bg-muted text-muted-foreground'
-              }`}
+              type="submit"
+              disabled={!expenseAmount}
+              className="w-full bg-destructive text-destructive-foreground py-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              - Pengeluaran
+              <Minus className="w-5 h-5" />
+              Catat Pengeluaran
             </button>
-          </div>
-
-          {/* Amount Input */}
-          <div>
-            <label htmlFor="amount" className="block text-sm font-medium mb-2 text-muted-foreground">
-              Nominal (Rp)
-            </label>
-            <input
-              type="number"
-              id="amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className="w-full bg-input border border-border rounded-xl px-4 py-3.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-ring"
-              min="0"
-              inputMode="numeric"
-            />
-          </div>
-
-          {/* Description Input */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-2 text-muted-foreground">
-              Keterangan
-            </label>
-            <input
-              type="text"
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Contoh: Gaji bulanan"
-              className="w-full bg-input border border-border rounded-xl px-4 py-3.5 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={!amount || !description.trim()}
-            className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-5 h-5" />
-            Simpan Transaksi
-          </button>
-        </form>
+          </form>
+        </div>
       </div>
 
-      {/* Transaction History */}
-      <div className="bg-card rounded-2xl p-5 border border-border">
-        <h2 className="font-semibold text-lg mb-4">Riwayat Transaksi</h2>
-        {transactions.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            Belum ada transaksi.<br />Mulai catat keuangan Anda!
-          </p>
-        ) : (
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {[...transactions].reverse().map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl"
-              >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                  transaction.type === 'income' ? 'bg-secondary/20' : 'bg-destructive/20'
-                }`}>
-                  {transaction.type === 'income' ? (
-                    <TrendingUp className="w-5 h-5 text-secondary" />
-                  ) : (
-                    <TrendingDown className="w-5 h-5 text-destructive" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{transaction.description}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(transaction.date)}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className={`font-semibold ${
-                    transaction.type === 'income' ? 'text-secondary' : 'text-destructive'
-                  }`}>
-                    {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+      {/* Transaction History Toggle */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-muted/50 transition-colors"
+        >
+          <span className="font-semibold">Riwayat Transaksi</span>
+          <span className="text-sm text-muted-foreground">
+            {transactions.length} transaksi {showHistory ? '▲' : '▼'}
+          </span>
+        </button>
+        
+        {showHistory && (
+          <div className="border-t border-border p-4">
+            {transactions.length === 0 ? (
+              <p className="text-muted-foreground text-center py-6">
+                Belum ada transaksi.<br />Mulai catat keuangan Anda!
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {recentTransactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl"
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                      transaction.type === 'income' ? 'bg-secondary/20' : 'bg-destructive/20'
+                    }`}>
+                      {transaction.type === 'income' ? (
+                        <ArrowUpCircle className="w-5 h-5 text-secondary" />
+                      ) : (
+                        <ArrowDownCircle className="w-5 h-5 text-destructive" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{transaction.description}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(transaction.date)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={`font-semibold text-sm ${
+                        transaction.type === 'income' ? 'text-secondary' : 'text-destructive'
+                      }`}>
+                        {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onDeleteTransaction(transaction.id)}
+                      className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label="Hapus transaksi"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {transactions.length > 5 && (
+                  <p className="text-center text-sm text-muted-foreground pt-2">
+                    + {transactions.length - 5} transaksi lainnya
                   </p>
-                </div>
-                <button
-                  onClick={() => onDeleteTransaction(transaction.id)}
-                  className="p-2 text-muted-foreground hover:text-destructive transition-colors"
-                  aria-label="Hapus transaksi"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                )}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
 import { ToastContainer } from '@/components/toast-container'
 import { FinanceTab, Transaction } from '@/components/finance-tab'
@@ -20,8 +20,18 @@ export default function FinHealthApp() {
 
   // LocalStorage state
   const [transactions, setTransactions, transactionsLoaded] = useLocalStorage<Transaction[]>('finhealth-transactions', [])
-  const [foodEntries, setFoodEntries, foodLoaded] = useLocalStorage<FoodEntry[]>('finhealth-food', [])
-  const [exercises, setExercises, exercisesLoaded] = useLocalStorage<Exercise[]>('finhealth-exercises', [])
+  const [foodEntries, setFoodEntries, foodLoaded] = useLocalStorage<FoodEntry[]>('finhealth-food-v2', [])
+  const [exercises, setExercises, exercisesLoaded] = useLocalStorage<Exercise[]>('finhealth-exercises-v2', [])
+
+  // Calculate today's calorie surplus for exercise recommendations
+  const dailyCaloriesSurplus = useMemo(() => {
+    const today = new Date().toDateString()
+    const todayEntries = foodEntries.filter(entry => 
+      new Date(entry.date).toDateString() === today
+    )
+    const totalCalories = todayEntries.reduce((acc, entry) => acc + entry.calories, 0)
+    return totalCalories - DAILY_CALORIE_TARGET
+  }, [foodEntries])
 
   // Finance handlers
   const handleAddTransaction = useCallback((transaction: Omit<Transaction, 'id' | 'date'>) => {
@@ -33,7 +43,7 @@ export default function FinHealthApp() {
     setTransactions(prev => [...prev, newTransaction])
     showToast(
       transaction.type === 'income' 
-        ? 'Pemasukan berhasil ditambahkan!' 
+        ? 'Uang masuk berhasil dicatat!' 
         : 'Pengeluaran berhasil dicatat!',
       'success'
     )
@@ -52,8 +62,22 @@ export default function FinHealthApp() {
       date: new Date().toISOString()
     }
     setFoodEntries(prev => [...prev, newFood])
-    showToast(`${food.name} (${food.calories} kkal) tercatat!`, 'success')
-  }, [setFoodEntries, showToast])
+    
+    const confidenceText = food.confidence === 'high' ? '' : ' (estimasi)'
+    showToast(`${food.name} - ${food.calories} kkal${confidenceText} tercatat!`, 'success')
+    
+    // Check if over daily limit
+    const today = new Date().toDateString()
+    const todayTotal = foodEntries
+      .filter(entry => new Date(entry.date).toDateString() === today)
+      .reduce((acc, entry) => acc + entry.calories, 0) + food.calories
+    
+    if (todayTotal > DAILY_CALORIE_TARGET) {
+      setTimeout(() => {
+        showToast(`Peringatan: Kalori hari ini melebihi target!`, 'warning')
+      }, 1500)
+    }
+  }, [setFoodEntries, showToast, foodEntries])
 
   const handleDeleteFood = useCallback((id: string) => {
     setFoodEntries(prev => prev.filter(f => f.id !== id))
@@ -75,7 +99,12 @@ export default function FinHealthApp() {
       if (ex.id === id) {
         const newCompleted = !ex.completed
         if (newCompleted) {
-          showToast('Hebat! Olahraga selesai!', 'success')
+          const exercise = prev.find(e => e.id === id)
+          if (exercise?.caloriesBurned) {
+            showToast(`Hebat! ${exercise.caloriesBurned} kkal terbakar!`, 'success')
+          } else {
+            showToast('Hebat! Olahraga selesai!', 'success')
+          }
         }
         return { ...ex, completed: newCompleted }
       }
@@ -121,7 +150,7 @@ export default function FinHealthApp() {
           </div>
           <div className="flex items-center gap-1 text-primary">
             <Leaf className="w-5 h-5" />
-            <span className="text-sm font-medium">Hidup Sehat</span>
+            <span className="text-sm font-medium">v2.0</span>
           </div>
         </div>
       </header>
@@ -149,6 +178,8 @@ export default function FinHealthApp() {
             onAddExercise={handleAddExercise}
             onToggleExercise={handleToggleExercise}
             onDeleteExercise={handleDeleteExercise}
+            dailyCaloriesSurplus={Math.max(0, dailyCaloriesSurplus)}
+            dailyTarget={DAILY_CALORIE_TARGET}
           />
         )}
       </main>

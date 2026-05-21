@@ -1,11 +1,11 @@
 "use client"
 
-import { CheckCircle, XCircle, Info, X } from 'lucide-react'
+import { CheckCircle, XCircle, Info, X, AlertTriangle } from 'lucide-react'
 
 interface Toast {
   id: string
   message: string
-  type: 'success' | 'error' | 'info'
+  type: 'success' | 'error' | 'info' | 'warning'
 }
 
 interface ToastContainerProps {
@@ -19,11 +19,20 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
   return (
     <div className="fixed top-4 left-4 right-4 z-[100] flex flex-col gap-2">
       {toasts.map((toast) => {
-        const Icon = toast.type === 'success' ? CheckCircle : toast.type === 'error' ? XCircle : Info
+        const Icon = toast.type === 'success' 
+          ? CheckCircle 
+          : toast.type === 'error' 
+          ? XCircle 
+          : toast.type === 'warning'
+          ? AlertTriangle
+          : Info
+        
         const bgColor = toast.type === 'success' 
           ? 'bg-secondary text-secondary-foreground' 
           : toast.type === 'error' 
-          ? 'bg-destructive text-destructive-foreground' 
+          ? 'bg-destructive text-destructive-foreground'
+          : toast.type === 'warning'
+          ? 'bg-amber-500 text-white'
           : 'bg-primary text-primary-foreground'
         
         return (

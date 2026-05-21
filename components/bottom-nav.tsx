@@ -11,7 +11,7 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   const tabs = [
-    { id: 'keuangan' as TabType, label: 'Keuangan', icon: Wallet },
+    { id: 'keuangan' as TabType, label: 'Dompetku', icon: Wallet },
     { id: 'nutrisi' as TabType, label: 'Nutrisi', icon: Apple },
     { id: 'olahraga' as TabType, label: 'Olahraga', icon: Dumbbell },
   ]
