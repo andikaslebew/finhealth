@@ -1,27 +1,48 @@
 "use client"
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
 import { ToastContainer } from '@/components/toast-container'
 import { FinanceTab, Transaction } from '@/components/finance-tab'
 import { NutritionTab, FoodEntry } from '@/components/nutrition-tab'
 import { ExerciseTab, Exercise } from '@/components/exercise-tab'
+import { ProfileTab } from '@/components/profile-tab'
+import { WelcomeScreen } from '@/components/welcome-screen'
 import { useLocalStorage } from '@/hooks/use-local-storage'
 import { useToast } from '@/hooks/use-custom-toast'
 import { Heart, Leaf } from 'lucide-react'
 
-type TabType = 'keuangan' | 'nutrisi' | 'olahraga'
+type TabType = 'keuangan' | 'nutrisi' | 'olahraga' | 'profil'
+
+interface UserProfile {
+  name: string
+  email: string
+  isLoggedIn: boolean
+}
 
 const DAILY_CALORIE_TARGET = 2000
 
 export default function FinHealthApp() {
   const [activeTab, setActiveTab] = useState<TabType>('keuangan')
   const { toasts, showToast, removeToast } = useToast()
+  const [isHydrated, setIsHydrated] = useState(false)
 
-  // LocalStorage state
+  // User authentication state
+  const [user, setUser, userLoaded] = useLocalStorage<UserProfile>('finhealth-user', {
+    name: '',
+    email: '',
+    isLoggedIn: false
+  })
+
+  // LocalStorage state for app data
   const [transactions, setTransactions, transactionsLoaded] = useLocalStorage<Transaction[]>('finhealth-transactions', [])
   const [foodEntries, setFoodEntries, foodLoaded] = useLocalStorage<FoodEntry[]>('finhealth-food-v2', [])
   const [exercises, setExercises, exercisesLoaded] = useLocalStorage<Exercise[]>('finhealth-exercises-v2', [])
+
+  // Handle hydration
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   // Calculate today's calorie surplus for exercise recommendations
   const dailyCaloriesSurplus = useMemo(() => {
@@ -32,6 +53,46 @@ export default function FinHealthApp() {
     const totalCalories = todayEntries.reduce((acc, entry) => acc + entry.calories, 0)
     return totalCalories - DAILY_CALORIE_TARGET
   }, [foodEntries])
+
+  // Login handler
+  const handleLogin = useCallback((userData: { name: string; email: string }) => {
+    setUser({
+      ...userData,
+      isLoggedIn: true
+    })
+    showToast(`Selamat datang, ${userData.name}!`, 'success')
+  }, [setUser, showToast])
+
+  // Logout handler
+  const handleLogout = useCallback(() => {
+    setUser({
+      name: '',
+      email: '',
+      isLoggedIn: false
+    })
+    setActiveTab('keuangan')
+    showToast('Berhasil keluar dari akun', 'info')
+  }, [setUser, showToast])
+
+  // Reset all data handler
+  const handleResetAllData = useCallback(() => {
+    // Clear all localStorage data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('finhealth-user')
+      localStorage.removeItem('finhealth-transactions')
+      localStorage.removeItem('finhealth-food-v2')
+      localStorage.removeItem('finhealth-exercises-v2')
+    }
+    
+    // Reset all states
+    setUser({ name: '', email: '', isLoggedIn: false })
+    setTransactions([])
+    setFoodEntries([])
+    setExercises([])
+    setActiveTab('keuangan')
+    
+    showToast('Semua data berhasil dihapus', 'success')
+  }, [setUser, setTransactions, setFoodEntries, setExercises, showToast])
 
   // Finance handlers
   const handleAddTransaction = useCallback((transaction: Omit<Transaction, 'id' | 'date'>) => {
@@ -118,8 +179,9 @@ export default function FinHealthApp() {
   }, [setExercises, showToast])
 
   // Check if data is loaded
-  const isLoaded = transactionsLoaded && foodLoaded && exercisesLoaded
+  const isLoaded = userLoaded && transactionsLoaded && foodLoaded && exercisesLoaded && isHydrated
 
+  // Show loading screen
   if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -131,6 +193,16 @@ export default function FinHealthApp() {
     )
   }
 
+  // Show welcome/login screen if not logged in
+  if (!user.isLoggedIn) {
+    return (
+      <>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+        <WelcomeScreen onLogin={handleLogin} />
+      </>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background pb-28">
       {/* Toast Container */}
@@ -138,19 +210,19 @@ export default function FinHealthApp() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="px-4 py-4 flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Heart className="w-6 h-6 text-primary-foreground" />
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+              <Heart className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">FinHealth</h1>
-              <p className="text-xs text-muted-foreground">Keuangan & Kesehatan</p>
+              <h1 className="text-lg font-bold text-foreground">FinHealth</h1>
+              <p className="text-[10px] text-muted-foreground">Halo, {user.name.split(' ')[0]}!</p>
             </div>
           </div>
           <div className="flex items-center gap-1 text-primary">
-            <Leaf className="w-5 h-5" />
-            <span className="text-sm font-medium">v2.0</span>
+            <Leaf className="w-4 h-4" />
+            <span className="text-xs font-medium">v2.0</span>
           </div>
         </div>
       </header>
@@ -180,6 +252,13 @@ export default function FinHealthApp() {
             onDeleteExercise={handleDeleteExercise}
             dailyCaloriesSurplus={Math.max(0, dailyCaloriesSurplus)}
             dailyTarget={DAILY_CALORIE_TARGET}
+          />
+        )}
+        {activeTab === 'profil' && (
+          <ProfileTab
+            user={user}
+            onLogout={handleLogout}
+            onResetAllData={handleResetAllData}
           />
         )}
       </main>
